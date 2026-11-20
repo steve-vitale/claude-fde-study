@@ -1,0 +1,559 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>FDE Study</title>
+<style>
+:root{--bg:#f7f5f0;--card:#fff;--ink:#1d1d1b;--mute:#6b6a65;--line:#e4e1d8;--acc:#c4572e;--acc2:#2e6fc4;--ok:#2f8a4e;--bad:#c23b3b;--soft:#f1ede4}
+@media (prefers-color-scheme:dark){:root{--bg:#161614;--card:#211f1c;--ink:#efece4;--mute:#a19e95;--line:#34322d;--acc:#e07a4f;--acc2:#6fa0e6;--ok:#58b979;--bad:#e06464;--soft:#2a2824}}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{margin:0;background:var(--bg);color:var(--ink);font:17px/1.5 -apple-system,system-ui,"Segoe UI",Roboto,sans-serif}
+main{max-width:640px;margin:0 auto;padding:16px 16px 96px}
+h1{font-size:24px;margin:8px 0 4px}h2{font-size:20px;margin:0 0 8px}h3{font-size:17px;margin:0 0 6px}
+.mute{color:var(--mute);font-size:14px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px;margin:12px 0}
+button{font:inherit;color:inherit;cursor:pointer}
+.btn{display:block;width:100%;min-height:52px;border-radius:14px;border:1px solid var(--line);background:var(--card);padding:12px 16px;margin:8px 0;text-align:left}
+.btn.primary{background:var(--acc);border-color:var(--acc);color:#fff;text-align:center;font-weight:600}
+.btn.ghost{background:transparent;text-align:center}
+.btn.ok{border-color:var(--ok);background:color-mix(in srgb,var(--ok) 14%,var(--card))}
+.btn.bad{border-color:var(--bad);background:color-mix(in srgb,var(--bad) 14%,var(--card))}
+.btn:disabled{opacity:1}
+.row{display:flex;gap:8px}.row>*{flex:1}
+.bar{height:8px;background:var(--soft);border-radius:8px;overflow:hidden}.bar>i{display:block;height:100%;background:var(--acc);border-radius:8px}
+.mod{display:flex;align-items:center;gap:12px}
+.num{flex:none;width:38px;height:38px;border-radius:50%;display:grid;place-items:center;background:var(--soft);font-weight:700}
+.num.done{background:var(--ok);color:#fff}
+.dots{display:flex;gap:4px;margin-top:4px}.dots b{width:9px;height:9px;border-radius:50%;background:var(--line)}.dots b.on{background:var(--ok)}
+.tabs{position:fixed;left:0;right:0;bottom:0;background:var(--card);border-top:1px solid var(--line);display:flex;padding-bottom:env(safe-area-inset-bottom)}
+.tabs button{flex:1;border:0;background:none;padding:10px 0 12px;font-size:12px;color:var(--mute)}
+.tabs button.on{color:var(--acc);font-weight:700}
+.tabs button span{display:block;font-size:20px}
+.top{display:flex;align-items:center;gap:8px;margin-bottom:4px}
+.back{border:0;background:none;font-size:15px;color:var(--acc2);padding:8px 0}
+.pill{display:inline-block;font-size:12px;padding:3px 9px;border-radius:99px;background:var(--soft);color:var(--mute)}
+code{background:var(--soft);padding:1px 5px;border-radius:5px;font-size:14px}
+textarea{width:100%;min-height:130px;font:inherit;padding:12px;border-radius:12px;border:1px solid var(--line);background:var(--bg);color:var(--ink)}
+.why{border-left:4px solid var(--acc2);padding:8px 12px;background:var(--soft);border-radius:8px;margin-top:10px}
+.copybox{width:100%;min-height:90px;font-size:13px}
+.big{font-size:40px;font-weight:800;line-height:1}
+ol.steps{padding-left:0;list-style:none;margin:0}
+ol.steps li{display:flex;gap:10px;align-items:flex-start;padding:10px 0;border-bottom:1px solid var(--line)}
+ol.steps input{width:24px;height:24px;flex:none;margin-top:2px;accent-color:var(--ok)}
+.toast{position:fixed;left:50%;bottom:90px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:12px;font-size:14px;display:none;z-index:9}
+</style>
+</head>
+<body>
+<main id="app"></main>
+<nav class="tabs" id="tabs"></nav>
+<div class="toast" id="toast"></div>
+<script>
+// Claude FDE study companion — content.
+// Written as a companion to the free "Claude Forward Deployed Engineer" path on
+// anthropic-partners.skilljar.com. The course pages behind sign-in were NOT read;
+// this follows the public outlines (course-outline-source.md) and Anthropic's public docs.
+// Each module: cards (learn), quiz (test), explain (say it in your own words), project (build + share).
+
+window.FDE = {
+  modules: [
+  {
+    id: "m1", n: 1, title: "How AI behaves", course: "AI Capabilities and Limitations",
+    why: "An FDE's first job on site is explaining why the model did something odd, and fixing it fast. That needs a mental model, not folklore.",
+    cards: [
+      { h: "It predicts the next token", b: "A language model writes one token (a word piece) at a time, each one the most fitting continuation of everything before it. It is not looking up an answer. That's why it sounds fluent even when it's wrong: fluency and truth come from different places." },
+      { h: "Knowledge has a date and gaps", b: "What the model knows came from training data with a cutoff. Recent events, your company's internal facts and niche details are thin or missing. When it doesn't know, it may still produce a confident guess. The fix is to <b>give it the facts</b> (documents, search, tools), not to ask harder." },
+      { h: "Working memory is the context window", b: "Everything the model can 'see' right now is the context window: system prompt, conversation, files, tool results. Nothing outside it exists for the model. Long contexts also dilute attention, so key facts buried in the middle can get missed." },
+      { h: "It is steerable", b: "Instructions, examples, roles and output formats change behaviour a lot. Vague asks get average answers. Steering is your strongest lever, and it's cheap." },
+      { h: "When properties collide", b: "Most surprises are two properties fighting. Example: you ask for a summary of a 200-page file (working memory) about last week's change (knowledge cutoff) in a strict table (steerability). Name which property failed, then fix that one: add the doc, shorten the input, or tighten the format." },
+      { h: "Diagnose before you fix", b: "Ask three questions about a bad output. <b>1.</b> Did it have the facts? (knowledge) <b>2.</b> Could it see them? (working memory) <b>3.</b> Did I say what good looks like? (steerability). One of the three is almost always the answer." }
+    ],
+    tryit: "Open Claude and ask: \"What happened in my town council meeting last Tuesday?\" Then paste a short news article about any recent event and ask again. Notice the difference: that's the knowledge property, and the fix.",
+    quiz: [
+      { q: "Claude gives a fluent, confident answer about your company's internal maintenance policy. It's wrong. Most likely cause?", o: ["The model is broken", "It never had the policy, so it predicted a plausible-sounding one", "The context window was too large", "Temperature was set too low"], a: 1, why: "Fluency comes from next-token prediction, not from knowing. Internal facts aren't in training data. Fix: put the policy in the context." },
+      { q: "Which fix matches a KNOWLEDGE failure?", o: ["Rewrite the prompt more politely", "Give the model the source document or a search tool", "Switch to a smaller model", "Ask it to 'think harder'"], a: 1, why: "Knowledge gaps are fixed by supplying facts. Steering can't create facts the model doesn't have." },
+      { q: "True or false: anything you told Claude in a different, earlier chat is in its working memory now.", o: ["True", "False"], a: 1, why: "Working memory is the current context window. Other chats aren't in it unless a memory or project feature puts them there." },
+      { q: "You paste a 150-page manual and ask about one valve. The answer misses a detail on page 80. Best first fix?", o: ["Paste the manual twice", "Point it at the relevant section or paste just that section", "Use all caps", "Ask for a longer answer"], a: 1, why: "That's a working-memory issue: long inputs dilute attention. Narrowing the context is the targeted fix." },
+      { q: "Output is accurate but in the wrong format for your report. Which property is that?", o: ["Knowledge", "Working memory", "Steerability", "Next-token prediction"], a: 2, why: "The facts are fine; the model wasn't told what good looks like. Give a format or an example." },
+      { q: "Why does the model sound equally confident when right and when wrong?", o: ["It's programmed to lie", "Its fluency comes from predicting likely text, which is separate from whether it's true", "It checks the internet every time", "Confidence is set by the user"], a: 1, why: "Fluent text is what prediction produces. Truth needs grounding, which you supply." }
+    ],
+    explain: { q: "In two or three sentences, explain to a plant manager why Claude can be confidently wrong, and what you'd do about it.", model: "Claude writes the most likely next words, so it always sounds sure, even when it's missing a fact. It only knows what it was trained on plus what we show it right now. So we give it our real documents and ask it to cite them, and we check anything that matters." },
+    project: {
+      title: "The 'Which kind of wrong?' field guide",
+      steps: [
+        "Run 6 prompts in Claude that you expect to fail: 2 knowledge, 2 working memory, 2 steerability. Use examples from your own field (shutdown lists, P&IDs, procedures).",
+        "Screenshot each bad answer, then the fixed version after one targeted change.",
+        "Make a one-page table: symptom → property → fix.",
+        "Save it to this folder as projects/m1-field-guide.md."
+      ],
+      share: "A carousel post: '3 ways AI gets things wrong in a plant, and the one-line fix for each.' Your industrial examples are the hook: most people only show coding examples."
+    }
+  },
+  {
+    id: "m2", n: 2, title: "AI fluency for builders (the 4Ds)", course: "AI Fluency for Builders",
+    why: "FDEs work beside customer teams. The 4D framework is the shared vocabulary for deciding what to hand to Claude and how to stand behind the result.",
+    cards: [
+      { h: "Delegation", b: "Decide <b>what</b> work goes to AI, what stays human, and what's shared. Good delegation starts from the goal and the risk, not from 'what can AI do?'. High-stakes judgement stays with a person." },
+      { h: "Description", b: "Describe the work well: the product (what you want), the process (how to approach it) and the performance (how it should behave with you, e.g. 'challenge my assumptions'). Most bad outputs are description failures." },
+      { h: "Discernment", b: "Judge the output: is it accurate, does the reasoning hold, does it fit the users? For builders this splits into discernment for <b>code</b> (does it run, is it safe, is it maintainable) and for <b>user experience</b> (does it actually help a real person)." },
+      { h: "Diligence", b: "Own the result. Be open about how AI was used, check it before it reaches anyone, and take responsibility for what ships. 'The AI wrote it' is never the excuse." },
+      { h: "The loop, not a checklist", b: "The 4Ds cycle: you delegate, describe, discern, and that discernment changes how you delegate and describe next time. Fluency is getting faster around the loop without skipping a D." }
+    ],
+    tryit: "Pick one task from your week. Write one line for each D: what you'd delegate, how you'd describe it, how you'll check it, and what you'll own. Then actually run it.",
+    quiz: [
+      { q: "A teammate pastes AI-written code into production without running it. Which D was skipped?", o: ["Delegation", "Description", "Discernment", "None"], a: 2, why: "Discernment is judging the output before trusting it. For code that means at least running and reading it." },
+      { q: "'Act as a skeptical reviewer and push back on weak points' is an example of describing the…", o: ["Product", "Process", "Performance", "Platform"], a: 2, why: "Performance description sets how the AI should behave in the collaboration." },
+      { q: "Which is the best Delegation decision?", o: ["Let AI approve a safety-critical change on its own", "Let AI draft the change summary; a qualified person approves it", "Never use AI for anything regulated", "Let whoever is fastest decide"], a: 1, why: "Delegate the drafting, keep the high-stakes judgement human. That's the point of Delegation." },
+      { q: "Diligence mostly means:", o: ["Working long hours", "Taking responsibility for, and being open about, AI-assisted work", "Using the biggest model", "Writing longer prompts"], a: 1, why: "Diligence is ownership and transparency." },
+      { q: "True or false: the 4Ds are done once at the start of a project.", o: ["True", "False"], a: 1, why: "They're a loop. Each round of discernment improves the next delegation and description." }
+    ],
+    explain: { q: "Pick a real task from your old plant work. Walk through it with the 4Ds in four short lines.", model: "Delegation: Claude drafts the turnaround punch-list summary; I keep the sign-off. Description: here's the list, group by unit, flag anything without an owner, plain language. Discernment: I spot-check 10 items against the source sheet. Diligence: I note it was AI-drafted and I sign it." },
+    project: {
+      title: "A 4D one-pager for one real workflow",
+      steps: [
+        "Pick one workflow you know well (e.g. writing a management-of-change summary).",
+        "Write the 4D breakdown, then run it with Claude three times, improving the Description each round.",
+        "Record what changed between round 1 and round 3 and why.",
+        "Save as projects/m2-4d-workflow.md."
+      ],
+      share: "'I ran the same task through Claude three times. Here's what I changed each round.' Show round 1 vs round 3. Before-and-after posts do well."
+    }
+  },
+  {
+    id: "m3", n: 3, title: "The four decisions before the prompt", course: "Claude Platform & Model Foundations",
+    why: "Customers often blame the prompt when the real problem was the wrong entry point, model or context setup. An FDE fixes the setup first.",
+    cards: [
+      { h: "Decision 1: entry point", b: "Where will the work happen? Claude.ai/apps for conversation and documents, Claude Code for work on files and code, the API for building it into a product. Picking the wrong door caps quality before you type anything." },
+      { h: "Decision 2: capability features", b: "Turn on what the task needs: Projects (shared files + instructions), web search, research, file creation, connectors to tools like Drive or Gmail, extended thinking for hard reasoning. Features you don't switch on can't help." },
+      { h: "Decision 3: model", b: "<b>Haiku</b>: fastest and cheapest, great for high-volume simple jobs (classify, extract, route). <b>Sonnet</b>: the strong all-rounder for most work. <b>Opus</b>: the most capable, for hard reasoning, complex agents and quality-critical output. Match the model to quality, speed and volume." },
+      { h: "Decision 4: context", b: "What will Claude see, and how will it carry over? Use Projects or memory for continuity, keep long sessions focused, and start fresh when a thread gets cluttered. Good context means each session builds on the last instead of re-explaining." },
+      { h: "Quality ceiling", b: "These four choices set the ceiling. A brilliant prompt in the wrong setup still hits it. For recurring team work, set them up once (a Project with instructions and files) and everyone starts from the same high floor." }
+    ],
+    tryit: "Make a Claude Project for one topic (e.g. 'Turnaround planning'). Add 2 reference files and a 3-line instruction. Ask the same question inside and outside the Project and compare.",
+    quiz: [
+      { q: "You need to tag 200,000 support tickets by category every day. Best model fit?", o: ["Opus", "Sonnet", "Haiku", "Whichever is newest"], a: 2, why: "High volume, simple task, cost and speed matter: Haiku." },
+      { q: "A team re-explains the same background at the start of every chat. Which decision fixes that?", o: ["Model", "Context (e.g. a Project with shared files and instructions)", "Entry point", "Temperature"], a: 1, why: "That's a context-continuity problem. A Project or memory carries it across sessions." },
+      { q: "You want Claude to edit a real code repository and run its tests. Entry point?", o: ["Claude.ai chat", "Claude Code", "A spreadsheet plugin", "Email"], a: 1, why: "Claude Code works directly on files and can run commands." },
+      { q: "Which is the best case for the most capable model?", o: ["Spell-checking", "A multi-step agent making judgement calls on messy inputs", "Turning yes/no into true/false", "Counting words"], a: 1, why: "Hard reasoning and complex agents are where the top model earns its cost." },
+      { q: "True or false: if the output is bad, the prompt is always the first thing to change.", o: ["True", "False"], a: 1, why: "Check the four setup decisions first. They set the quality ceiling." },
+      { q: "A long chat has drifted and Claude keeps mixing up two projects. Good move?", o: ["Keep going and hope", "Start a fresh session with a short summary of what matters", "Switch to all caps", "Add more files"], a: 1, why: "Cluttered context hurts. A clean start with a focused summary resets working memory." }
+    ],
+    explain: { q: "A customer says 'Claude is bad at our reports.' List the four questions you'd ask before touching their prompt.", model: "Where are they using it (chat, Code, API)? Which features are on (Projects, search, connectors)? Which model? What does Claude actually see: does it have their templates and past reports, and is the thread clean?" },
+    project: {
+      title: "Model picker cheat-sheet from your own tests",
+      steps: [
+        "Pick 3 tasks: one simple (extract dates from text), one medium (summarise a procedure), one hard (find conflicts between two procedures).",
+        "Run each on Haiku, Sonnet and Opus (Claude.ai lets you switch model). Note quality and speed.",
+        "Make a 3×3 grid with your verdicts.",
+        "Save as projects/m3-model-grid.md."
+      ],
+      share: "'I tested three Claude models on real plant paperwork. The cheapest one won two of three.' (Only say what your grid actually shows.)"
+    }
+  },
+  {
+    id: "m4", n: 4, title: "Building on the Claude Platform", course: "Claude Platform 101",
+    why: "This is the core technical module. FDEs build prototypes on the API in front of customers. Understanding the request and the agent loop is non-negotiable.",
+    cards: [
+      { h: "What's in a request", b: "A Messages API call sends: <code>model</code>, <code>max_tokens</code>, an optional <code>system</code> prompt, and <code>messages</code> (alternating <code>user</code> / <code>assistant</code> turns). The reply has <code>content</code> blocks, a <code>stop_reason</code> and token <code>usage</code>. The API is stateless: you send the whole conversation each time." },
+      { h: "The agent loop", b: "An agent is a loop: <b>1.</b> send the conversation + tool definitions. <b>2.</b> If <code>stop_reason</code> is <code>tool_use</code>, run the tool Claude asked for. <b>3.</b> Send the result back as a <code>tool_result</code> block (matched by <code>tool_use_id</code>) in a user turn. <b>4.</b> Repeat until Claude ends its turn. That's all an agent is." },
+      { h: "Tool use", b: "You describe a tool with a name, a description and a JSON input schema. Claude decides when to call it and with what inputs. <b>Your code</b> runs it. The description matters a lot: it's how Claude knows when the tool fits." },
+      { h: "Thinking", b: "Extended thinking lets Claude reason step by step before answering. Use it for hard problems (planning, maths, tricky debugging). It costs tokens and time, so don't switch it on for simple lookups." },
+      { h: "Built-in tools, Skills, MCP", b: "Some tools run on Anthropic's side (web search, web fetch, code execution), so you don't host them. <b>Skills</b> package a procedure once for reuse. <b>MCP</b> connects Claude to third-party systems without writing every schema yourself." },
+      { h: "Context management & cost", b: "Long agents grow their context every turn, and you pay for every token you resend. Keep them affordable with prompt caching (reuse a fixed prefix cheaply), trimming old tool results, and summarising. Workspaces and spend limits in the Console keep bills predictable." },
+      { h: "Run your loop, or let Anthropic run it", b: "You can write the loop yourself (full control), use the SDK's tool runner (less code), or hand it to a <b>managed agent</b> where Anthropic runs the loop in a sandbox and you read the event stream. More control vs less to operate." }
+    ],
+    tryit: "No API key yet? Ask Claude: 'Show me the JSON for a Messages API request with one tool called get_tank_level, and the two messages that follow when you call it.' Read it until each field makes sense.",
+    quiz: [
+      { q: "Claude's reply has stop_reason: \"tool_use\". What does your code do next?", o: ["Show the reply to the user and stop", "Run the requested tool and send back a tool_result in a user message", "Resend the same request", "Switch models"], a: 1, why: "That's the loop: run the tool, return the result matched by tool_use_id, call the API again." },
+      { q: "Who actually executes a tool you define yourself?", o: ["Claude, inside the model", "Your code", "The user's browser", "MCP always"], a: 1, why: "Claude only asks for the call. Your application runs it (except Anthropic's built-in server tools)." },
+      { q: "True or false: the Messages API remembers your conversation between calls.", o: ["True", "False"], a: 1, why: "It's stateless. You send the full message history each time." },
+      { q: "Which part of a tool definition most affects WHEN Claude chooses it?", o: ["The tool name length", "The description", "The order of tools", "The JSON key casing"], a: 1, why: "Claude reads the description to decide whether the tool fits the task." },
+      { q: "Your agent's cost climbs every turn. Most direct reason?", o: ["The API charges per minute", "The whole growing conversation, tool results included, is resent each turn", "Thinking is always on", "Tools are billed per call"], a: 1, why: "Context grows each turn. Caching, trimming old tool results and summarising control it." },
+      { q: "Best use of extended thinking?", o: ["Returning the current date", "Planning a multi-step change with competing constraints", "Echoing user input", "Formatting a list"], a: 1, why: "Thinking pays off on hard reasoning, not simple lookups." },
+      { q: "Put the loop in order: (A) run tool (B) send messages + tools (C) send tool_result (D) Claude returns tool_use", o: ["B, D, A, C", "A, B, C, D", "D, B, A, C", "B, A, D, C"], a: 0, why: "Send → Claude asks for a tool → you run it → you return the result. Then repeat." }
+    ],
+    explain: { q: "Explain the agent loop to a smart non-programmer in four sentences, no jargon.", model: "You give Claude a task and a list of tools it may ask for. Claude either answers or says 'please run this tool with these inputs.' Your program runs it and hands back the result. That repeats until Claude says it's done." },
+    project: {
+      title: "An agent loop by hand, in about 60 lines",
+      steps: [
+        "Ask me (Claude, in chat) to pair with you: one tool, e.g. lookup_equipment(tag) that reads a small CSV of fake equipment.",
+        "Write the loop yourself: send, check stop_reason, run tool, return tool_result, repeat.",
+        "Log every turn so you can see the loop happen.",
+        "Needs an API key with a few dollars of credit. If cost is a blocker, do the paper version: write out each message by hand.",
+        "Save code + a sample log in projects/m4-agent-loop/."
+      ],
+      share: "'An AI agent is just a loop. Here's one in 60 lines that answers questions about a plant equipment list.' Post the log, not just the code: people want to see it think."
+    }
+  },
+  {
+    id: "m5", n: 5, title: "Claude Code basics", course: "Claude Code 101",
+    why: "Claude Code is the main tool FDEs deploy to engineering teams. You need to drive it well and teach others to.",
+    cards: [
+      { h: "A coding agent, not a chat", b: "Claude Code runs the same agent loop on your machine: it reads files, runs commands, edits code and checks results. Unlike chat, it acts. That's why <b>permissions</b> matter: by default it asks before edits and commands." },
+      { h: "Modes", b: "Default: asks before acting. Auto-accept edits: applies file edits without asking. <b>Plan Mode</b> (Shift+Tab to cycle): researches and proposes a plan without changing anything. Use Plan Mode for anything non-trivial." },
+      { h: "Explore → Plan → Code → Commit", b: "<b>Explore</b>: have it read the relevant code first. <b>Plan</b>: agree the approach. <b>Code</b>: implement and test. <b>Commit</b>: write a clear commit. Skipping Explore and Plan is the most common reason for bad results." },
+      { h: "Manage context", b: "<code>/context</code> shows what's filling the window. <code>/compact</code> summarises the conversation to free space (you can tell it what to keep). <code>/clear</code> starts fresh. Clear between unrelated tasks." },
+      { h: "CLAUDE.md = project memory", b: "A CLAUDE.md file in the repo is loaded every session: build commands, conventions, gotchas. Keep it short and true. A bloated CLAUDE.md gets ignored." },
+      { h: "Subagents, Skills, MCP, Hooks", b: "<b>Subagents</b>: hand a side task to a helper with its own context, keeping yours clean. <b>Skills</b>: reusable instructions loaded when relevant. <b>MCP</b>: connect tools and data. <b>Hooks</b>: scripts that run at fixed points (e.g. before a tool call) for rules that must always hold." }
+    ],
+    tryit: "In any small folder, start Claude Code, press Shift+Tab into Plan Mode and ask: 'Read this folder and propose a README.' Approve the plan, then run /context to see what used the window.",
+    quiz: [
+      { q: "You want Claude Code to investigate a bug and propose a fix WITHOUT changing files yet. Use…", o: ["Auto-accept edits", "Plan Mode", "/clear", "A hook"], a: 1, why: "Plan Mode researches and plans without making changes." },
+      { q: "The context window is nearly full mid-task, and you want to keep going. Best command?", o: ["/clear", "/compact (optionally saying what to keep)", "Close the terminal", "/context"], a: 1, why: "/compact summarises and frees space while keeping the thread. /clear throws it away." },
+      { q: "Where do build commands and team conventions belong so every session knows them?", o: ["In each prompt", "CLAUDE.md", "A hook", "The commit message"], a: 1, why: "CLAUDE.md is loaded automatically as project memory." },
+      { q: "A rule must hold 100% of the time (e.g. never edit .env files). Best tool?", o: ["A line in CLAUDE.md", "A hook that blocks the action", "Asking nicely", "A subagent"], a: 1, why: "Instructions are followed most of the time. Hooks are deterministic: they always run." },
+      { q: "Why use a subagent for a big codebase search?", o: ["It's cheaper per token", "Its exploring happens in its own context, so your main context stays clean", "It can't read files", "It skips permissions"], a: 1, why: "The subagent returns a summary; the file dumps stay out of your main window." },
+      { q: "Correct order of the core workflow?", o: ["Code → Plan → Explore → Commit", "Explore → Plan → Code → Commit", "Plan → Code → Commit → Explore", "Commit → Code"], a: 1, why: "Understand first, agree the plan, then build and commit." }
+    ],
+    explain: { q: "When would you use CLAUDE.md, a skill, and a hook? One sentence each.", model: "CLAUDE.md for short facts every session needs, like build commands. A skill for a procedure that's only needed sometimes, loaded when relevant. A hook for a rule that must never be broken, because it runs every time no matter what the model decides." },
+    project: {
+      title: "Your first CLAUDE.md, tested",
+      steps: [
+        "Pick a small project (even a folder of your notes).",
+        "Write a CLAUDE.md under 30 lines: what it is, how it's organised, 3 rules.",
+        "Give Claude Code 3 tasks with and without it. Note what changed.",
+        "Save the CLAUDE.md and your notes in projects/m5-claude-md/."
+      ],
+      share: "'I wrote a 25-line file that changed how my AI assistant works on my project. Here's what's in it and why.'"
+    }
+  },
+  {
+    id: "m6", n: 6, title: "Long, hands-off Claude Code runs", course: "Claude Code in Action",
+    why: "Customers want Claude working for hours unattended. The FDE skill is making those runs trustworthy: steer, enforce, automate, verify.",
+    cards: [
+      { h: "Steer the work", b: "Scope with Plan Mode first. When compacting, tell it what to keep (decisions, open issues). Use the <b>rewind</b> menu (Esc twice) to go back to a good point instead of arguing forward. Choose hands-on steering for unclear work and autonomous runs only once the goal is clear and checkable." },
+      { h: "A CLAUDE.md that gets followed", b: "Lean beats long. Put only what's true, specific and needed every time. Move procedures into skills. If a rule keeps being broken, that's a sign it should be a hook, not more words." },
+      { h: "Permission modes", b: "Pick per job: ask-every-time for unfamiliar work; accept-edits for trusted edits; plan for read-only research; full bypass only in an isolated sandbox. Wider permissions need stronger checks after." },
+      { h: "Hooks enforce", b: "Hooks run at events like PreToolUse and PostToolUse, or when Claude stops. A PreToolUse hook can block a dangerous command (exit code 2 blocks it and tells Claude why). A Stop hook can refuse to finish until tests pass." },
+      { h: "Automate repeat work", b: "Schedule prompts as routines that run on Anthropic's infrastructure. Use headless mode (<code>claude -p \"...\"</code>) inside your own scripts and CI. Wire Claude into pull requests with the GitHub Action and code review." },
+      { h: "Verify in proportion", b: "The less you watched, the more you check: read the diff, rerun the tests yourself, check it did what was asked and nothing else. Then package the setup you trust (skills, hooks, commands) as a <b>plugin</b> your team can install." }
+    ],
+    tryit: "Ask Claude Code to write a tiny PreToolUse hook that blocks any command containing 'rm -rf'. Then ask it to run 'rm -rf test' and watch the hook stop it.",
+    quiz: [
+      { q: "Claude went down a wrong path 10 minutes ago. Fastest recovery?", o: ["Keep correcting it forward", "Rewind to the last good point", "Delete the repo", "Switch to Haiku"], a: 1, why: "Rewind restores the conversation (and code) to a good point. Cheaper than untangling." },
+      { q: "You want Claude to never declare 'done' while tests fail. Best mechanism?", o: ["Add 'please run tests' to CLAUDE.md", "A Stop hook that checks test results", "Use Plan Mode", "A longer prompt"], a: 1, why: "A hook that gates finishing on real test results is deterministic." },
+      { q: "Run Claude non-interactively inside a nightly script. Use…", o: ["Plan Mode", "Headless mode, claude -p", "The desktop app", "A subagent"], a: 1, why: "Headless (-p) runs one prompt and exits, made for scripts and CI." },
+      { q: "When is skipping all permission prompts reasonable?", o: ["On your main laptop with real credentials", "In an isolated container or sandbox with nothing to lose", "Always, it's faster", "Never under any circumstances"], a: 1, why: "Bypass only where the blast radius is contained." },
+      { q: "A run happened overnight with nobody watching. Right level of checking?", o: ["Less, it's probably fine", "More: read the diff and rerun tests yourself", "Just read its summary", "Only check if users complain"], a: 1, why: "Verify in proportion to how little you supervised." },
+      { q: "Best way to give your whole team the same trusted setup of skills and hooks?", o: ["Email the files", "Package it as a plugin", "Tell them in a meeting", "Copy your laptop"], a: 1, why: "Plugins bundle skills, hooks, commands and more for one-step install." }
+    ],
+    explain: { q: "A customer wants Claude to run unattended overnight on their codebase. Give the 4 safeguards you'd put in place.", model: "A clear, checkable goal agreed in Plan Mode first. Limited permissions in an isolated environment. Hooks that block dangerous commands and refuse to finish until tests pass. A morning review of the diff and test results before anything merges." },
+    project: {
+      title: "A safety-hook pack",
+      steps: [
+        "With Claude Code, build 2 hooks: one blocks edits to secret files (.env), one runs a check after each edit.",
+        "Prove each one works: show it blocking or catching something.",
+        "Write a short README: what each hook guards and why a prompt alone isn't enough.",
+        "Save in projects/m6-hooks/."
+      ],
+      share: "'Telling an AI \"don't do X\" works most of the time. Here's how I made it work every time.' Industrial safety people get interlocks instantly. Use that comparison."
+    }
+  },
+  {
+    id: "m7", n: 7, title: "Model Context Protocol (MCP)", course: "Introduction to Model Context Protocol",
+    why: "Almost every enterprise deployment connects Claude to internal systems. MCP is the standard way. FDEs build MCP servers on site.",
+    cards: [
+      { h: "What MCP is", b: "An open protocol that lets an AI app (the <b>client</b>/host) talk to a <b>server</b> that exposes a system: a database, a file store, an API. Write the server once and any MCP-capable client can use it. Instead of every app writing every integration, systems publish one server." },
+      { h: "Three primitives", b: "<b>Tools</b>: actions Claude can call (model-controlled). <b>Resources</b>: read-only data the app chooses to attach (app-controlled). <b>Prompts</b>: ready-made instructions the user picks, like a slash command (user-controlled)." },
+      { h: "Transports", b: "MCP is transport-agnostic. Local servers usually talk over <b>stdio</b> (the client launches the process). Remote servers use HTTP (streamable HTTP). The messages are JSON-RPC either way." },
+      { h: "Building a server in Python", b: "With the Python SDK you write a normal function and add a decorator like <code>@mcp.tool()</code>. Type hints and field descriptions become the input schema, so you don't hand-write JSON schema." },
+      { h: "Test with the Inspector", b: "The MCP Inspector is a browser tool to call your server's tools, read resources and try prompts without involving Claude. Debug there first." },
+      { h: "Resources: direct vs templated", b: "A direct resource has a fixed URI (e.g. <code>docs://index</code>). A templated one takes parameters (e.g. <code>docs://{doc_id}</code>). Return content with the right MIME type (JSON or text)." }
+    ],
+    tryit: "In Claude Code, run /mcp to see which MCP servers are connected. Pick one and ask Claude to list its tools. Notice each tool's description: that's what Claude reads to decide.",
+    quiz: [
+      { q: "Read-only reference data that your app decides to attach to the conversation is best exposed as a…", o: ["Tool", "Resource", "Prompt", "Hook"], a: 1, why: "Resources are app-controlled, read-only data." },
+      { q: "An action Claude should decide to take itself, like 'create_work_order', is a…", o: ["Tool", "Resource", "Prompt", "Transport"], a: 0, why: "Tools are model-controlled actions." },
+      { q: "A user-selectable template like '/format-report' is a…", o: ["Tool", "Resource", "Prompt", "Server"], a: 2, why: "Prompts are user-controlled, pre-written instructions." },
+      { q: "A local MCP server launched by Claude Desktop most likely uses which transport?", o: ["stdio", "Email", "FTP", "WebSocket only"], a: 0, why: "Local servers usually run as a child process over stdio." },
+      { q: "Main benefit of MCP for a company with 12 internal systems?", o: ["Faster model", "Each system gets one server that any MCP client can reuse", "No need for security", "Lower token cost"], a: 1, why: "Write the integration once; reuse across Claude Code, Desktop, your own agents." },
+      { q: "Your new tool isn't behaving. Where to test first, without Claude in the loop?", o: ["Production", "The MCP Inspector", "LinkedIn", "A hook"], a: 1, why: "The Inspector calls your server directly so you can separate server bugs from model behaviour." }
+    ],
+    explain: { q: "Explain tools vs resources vs prompts using a plant example for each.", model: "Tool: 'create_work_order', Claude decides to call it. Resource: the equipment list for Unit 200, the app attaches it as reference. Prompt: a 'shift handover summary' template the operator picks from a menu." },
+    project: {
+      title: "A tiny MCP server for an equipment list",
+      steps: [
+        "Make a fake CSV of 20 pieces of equipment (tag, type, unit, last inspection). Fake data only.",
+        "With Claude Code, build a Python MCP server: a tool search_equipment, a resource equipment://{tag}, a prompt 'inspection_overdue_report'.",
+        "Test in the Inspector, then connect it to Claude Code and ask real questions.",
+        "Save in projects/m7-mcp-equipment/ with a README and screenshots."
+      ],
+      share: "'I connected Claude to a (fake) plant equipment list in an afternoon. Here's what MCP is, in plant terms.' Use fake data and say so."
+    }
+  },
+  {
+    id: "m8", n: 8, title: "Agent Skills", course: "Introduction to agent skills",
+    why: "Skills are how an FDE leaves expertise behind: the customer's procedures, packaged so Claude applies them every time.",
+    cards: [
+      { h: "What a skill is", b: "A folder with a <code>SKILL.md</code> file: instructions (plus optional scripts and reference files) that Claude loads when the task matches. Teach once, reuse forever." },
+      { h: "Frontmatter + description", b: "SKILL.md starts with YAML frontmatter: <code>name</code> and <code>description</code>. The description is how Claude decides to use it, so say <b>what it does and when to use it</b>, with trigger words people actually say." },
+      { h: "Progressive disclosure", b: "At start-up Claude only sees each skill's name and description. The full SKILL.md loads when relevant, and extra files only when SKILL.md points to them. So you can have many skills without filling the context." },
+      { h: "Scripts and allowed-tools", b: "Bundle scripts for deterministic steps: running them costs output tokens, not the script's whole text. <code>allowed-tools</code> in frontmatter limits which tools the skill may use." },
+      { h: "Skills vs the rest", b: "<b>CLAUDE.md</b>: always loaded, short facts. <b>Skill</b>: loaded on demand, procedures. <b>Hook</b>: always runs, enforcement. <b>Subagent</b>: separate context for delegated work (and can use skills)." },
+      { h: "Share and fix", b: "Share by committing to the repo's <code>.claude/skills/</code>, by plugins, or organisation-wide with managed settings. Skill not triggering? The description is usually too vague. Fix that first." }
+    ],
+    tryit: "Ask Claude Code: 'What skills do you have available?' Then read one SKILL.md and judge its description: would it trigger on the words you'd naturally use?",
+    quiz: [
+      { q: "Your skill never triggers. Most likely fix?", o: ["Make the SKILL.md longer", "Rewrite the description to say what it does and when to use it, with real trigger words", "Rename the folder", "Add a hook"], a: 1, why: "The description is what Claude matches on." },
+      { q: "At session start, what does Claude load for each installed skill?", o: ["Everything in the folder", "Just name and description", "Nothing until you type its name", "Only scripts"], a: 1, why: "Progressive disclosure: metadata first, full body when relevant." },
+      { q: "A procedure is needed only for monthly reports. Where should it live?", o: ["CLAUDE.md", "A skill", "A hook", "The system prompt of every chat"], a: 1, why: "Occasional procedures belong in skills so they don't burn context every session." },
+      { q: "Why put a calculation in a bundled script instead of in SKILL.md prose?", o: ["Scripts are prettier", "It runs deterministically, and its code doesn't need to sit in the context", "Claude can't do maths", "Prose isn't allowed"], a: 1, why: "Deterministic and context-efficient." },
+      { q: "Simplest way to share a skill with your team on one repo?", o: ["Commit it under .claude/skills/", "Screenshot it", "Paste it into Slack daily", "Email the CEO"], a: 0, why: "Committed skills come along with the repo." }
+    ],
+    explain: { q: "Write the description line for a skill that turns a messy shift log into a handover summary.", model: "Turns a raw shift log or operator notes into a structured handover summary (open issues, equipment status, safety items, follow-ups). Use when someone says handover, shift summary, end of shift, or pastes shift notes." },
+    project: {
+      title: "A skill from your own expertise",
+      steps: [
+        "Pick a procedure you know cold from industry (e.g. reviewing a change request for missing info).",
+        "Write SKILL.md: a sharp description, the steps, a checklist, one example.",
+        "Test it on 3 made-up inputs. Does it trigger? Is the output what an expert would produce?",
+        "Save in projects/m8-skill/ (this fits your public toolkit story)."
+      ],
+      share: "'I turned 15 years of [your specialty] know-how into a file an AI loads automatically. Here's the file.' Your domain expertise is the differentiator: most skill posts are generic."
+    }
+  },
+  {
+    id: "m9", n: 9, title: "Delivery methodology", course: "Delivery Methodology",
+    why: "The course says it plainly: the technical work is table stakes. Engagements succeed or fail on use-case choice, baselines and adoption. Your project-delivery background is an asset here.",
+    cards: [
+      { h: "Structural vs marginal gain", b: "<b>Marginal</b>: the same work runs faster. Real, but hard to anchor a business case on in 30 days. <b>Structural</b>: the unit of work changes (a 4-person, 6-week task becomes 2 people, 2 weeks). Structural gains are measurable early and defensible at the readout. Hunt for those." },
+      { h: "Qualify the use case", b: "Four criteria: <b>volume</b> (does it happen often?), <b>complexity</b> (enough to matter, not so much it stalls), <b>measurability</b> (can we count the result?), <b>developer readiness</b> (will the people actually use it?)." },
+      { h: "Pilot design", b: "Pick the cohort, scope, duration and success criteria up front, so Day 30 gives an answer, not just a good feeling." },
+      { h: "Baseline before Day 1", b: "Capture how long the work takes <b>before</b> the pilot. Without pre-pilot data there's no denominator for ROI. This is the most-missed step." },
+      { h: "Rollout and champions", b: "The move from supervised use to delegating real work doesn't happen by itself: design it in. Find champions, invest in CLAUDE.md and internal docs as deployment infrastructure, and set them up to run it after you leave." },
+      { h: "The 30-day activation", b: "Pre-kickoff prep → weekly rhythm with Centre-of-Excellence touchpoints and office hours → Day 30 showcase → handoff of plugins and documentation. The artifact: a Delivery Plan Pack (use-case qualification, pilot design, ROI scorecard, champion plan)." }
+    ],
+    tryit: "Think of a team you've worked with. Name one task that would be a marginal gain and one that could be structural. Write both down.",
+    quiz: [
+      { q: "'Engineers write unit tests 30% faster' is a…", o: ["Structural gain", "Marginal gain", "Baseline", "Failure mode"], a: 1, why: "Same work, faster: marginal." },
+      { q: "'Legacy migration that needed 4 people for 6 weeks now takes 2 people 2 weeks' is a…", o: ["Marginal gain", "Structural gain", "Pilot cohort", "Champion"], a: 1, why: "The unit of work changed: structural." },
+      { q: "Day 30 arrives and you can't prove ROI. Most likely missing piece?", o: ["A nicer slide deck", "A baseline captured before Day 1", "A bigger model", "More users"], a: 1, why: "No pre-pilot data, no denominator." },
+      { q: "Which is NOT one of the four qualification criteria?", o: ["Volume", "Measurability", "Developer readiness", "How exciting the demo looks"], a: 3, why: "Volume, complexity, measurability, developer readiness." },
+      { q: "Why invest in the customer's CLAUDE.md and internal docs?", o: ["It's busywork", "They're deployment infrastructure that keeps it working after you leave", "Legal requires it", "To slow the pilot"], a: 1, why: "Champions maintain the deployment with them." },
+      { q: "True or false: once people have access, they'll naturally move from supervised use to delegating real work.", o: ["True", "False"], a: 1, why: "It has to be designed into the activation from the start." }
+    ],
+    explain: { q: "Explain structural vs marginal gain to a CFO in two sentences, with one example from heavy industry.", model: "Marginal gain means the same people do the same job a bit faster; structural gain means the job itself changes size. Example: turning a 3-week shutdown-list cleanup by four planners into a 3-day review by one planner is structural, and that's the number worth paying for." },
+    project: {
+      title: "A Delivery Plan Pack for a fictional plant",
+      steps: [
+        "Invent a client brief: a mid-size chemical plant wants Claude for turnaround planning. (Fictional, no real company data.)",
+        "Fill the 4 parts: use-case qualification (score 3 candidates on the 4 criteria), pilot design, ROI scorecard with a baseline plan, champion plan.",
+        "Ask me to play the skeptical plant manager and grill your plan.",
+        "Save as projects/m9-delivery-plan-pack.md."
+      ],
+      share: "'Most AI pilots fail before Day 1: nobody measured the baseline. Here's the plan I'd use for a plant turnaround.' This is your strongest post: it's where your industry experience and the FDE role meet."
+    }
+  },
+  {
+    id: "m10", n: 10, title: "Driving enterprise adoption", course: "Driving enterprise adoption of Claude",
+    why: "Buying licences isn't transformation. FDEs help leaders through the messy middle, where usage dips before it climbs.",
+    cards: [
+      { h: "Three phases", b: "<b>Activation</b>: technical setup and organisational readiness (success team, provisioning, culture, enablement, launch). <b>Acceleration</b>: scale through governance, a Centre of Excellence and train-the-trainer. <b>Expansion</b>: use the wins to move into advanced capabilities and bigger use cases." },
+      { h: "The J-curve", b: "Productivity often dips before it rises: people are learning new ways of working. That's expected. Leaders who know this don't panic and cancel at the bottom of the curve." },
+      { h: "Psychological safety", b: "People need to feel safe experimenting, and safe saying 'this didn't work'. Without it, usage stays shallow and hidden." },
+      { h: "Three core principles", b: "<b>1.</b> Leaders explain why the organisation is adopting. <b>2.</b> Foster a growth mindset. <b>3.</b> Share wins systematically, so success spreads by example." },
+      { h: "Centre of Excellence + champions", b: "A CoE sets guidance and collects what works. Champions programmes and train-the-trainer spread skills faster than any central team can. Measure impact, celebrate, iterate." }
+    ],
+    tryit: "Recall a technology rollout you lived through at a plant (new CMMS, new permit system). Where was the dip? What made people come back, or not?",
+    quiz: [
+      { q: "Six weeks in, output has dipped and an exec wants to cancel. Best response?", o: ["Agree and cancel", "Explain the expected J-curve and show leading indicators of learning", "Hide the numbers", "Buy more licences"], a: 1, why: "The dip is expected; show progress signals while it climbs." },
+      { q: "Building a Centre of Excellence belongs to which phase?", o: ["Activation", "Acceleration", "Expansion", "Pre-sales"], a: 1, why: "Acceleration scales via governance and a CoE." },
+      { q: "Which is one of the three core principles?", o: ["Mandate daily usage quotas", "Leaders articulate why the organisation is adopting", "Restrict use to IT only", "Avoid sharing results"], a: 1, why: "Leader-led rationale, growth mindset, sharing wins." },
+      { q: "Why does train-the-trainer matter?", o: ["It's cheaper than coffee", "It spreads skills faster than a central team alone", "It replaces documentation", "It's required by law"], a: 1, why: "Champions multiply reach." },
+      { q: "True or false: once Claude is provisioned, adoption is basically done.", o: ["True", "False"], a: 1, why: "Provisioning is step one of Activation. Adoption is a change-management job." }
+    ],
+    explain: { q: "A plant's leadership asks 'how do we get people to actually use this?' Give your answer in 3 bullets.", model: "Have the plant manager explain why we're doing it, in their own words, at the start. Pick champions on each shift and train them first so they can train others. Share one real win every week, and expect a dip in the first month." },
+    project: {
+      title: "Adoption plan + 30/60/90 story",
+      steps: [
+        "Using your m9 fictional plant, write a 3-phase adoption plan: Activation, Acceleration, Expansion. One paragraph each.",
+        "Add a simple J-curve sketch with what you'd measure at each point.",
+        "Add a champion plan: who, how trained, how wins are shared.",
+        "Save as projects/m10-adoption-plan.md."
+      ],
+      share: "'Every plant tech rollout I've seen had a dip in month one. Here's how I'd plan for it with AI.' Lived experience + framework."
+    }
+  }
+  ],
+
+  capstone: {
+    title: "Capstone: a portfolio an FDE hiring manager would open",
+    steps: [
+      "Pull the best 3 projects into one README in this folder: the agent loop (m4), the MCP server (m7) or skill (m8), and the Delivery Plan Pack (m9).",
+      "For each, one paragraph: the problem, what you built, what you'd do next.",
+      "Do a mock FDE interview with me: say 'mock interview' in chat. I'll play a customer with a vague problem and a hiring manager after.",
+      "Then decide if you want to sit the official course (it's free) and any certification."
+    ]
+  }
+};
+
+</script>
+<script>
+const D = window.FDE, M = D.modules;
+const KEY = "fde-study-v1";
+let S = load();
+function load(){ try{ return Object.assign({mods:{},review:[],days:[],steps:{}}, JSON.parse(localStorage.getItem(KEY)||"{}")); }catch(e){ return {mods:{},review:[],days:[],steps:{}}; } }
+function save(){ const t=new Date().toISOString().slice(0,10); if(!S.days.includes(t)) S.days.push(t); try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){} }
+function ms(id){ return S.mods[id] || (S.mods[id]={learn:false,quiz:null,explain:null,build:false}); }
+const $ = s => document.querySelector(s);
+const esc = s => String(s).replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
+function toast(t){ const e=$("#toast"); e.textContent=t; e.style.display="block"; clearTimeout(e._t); e._t=setTimeout(()=>e.style.display="none",1800); }
+function shuffle(a){ a=a.slice(); for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];} return a; }
+function done(id){ const m=ms(id); return m.learn && m.quiz!==null && m.quiz>=0.8 && m.explain && m.build; }
+function parts(id){ const m=ms(id); return [m.learn, m.quiz!==null&&m.quiz>=0.8, !!m.explain, m.build]; }
+function streak(){ const set=new Set(S.days); let n=0, d=new Date(); for(;;){ const k=d.toISOString().slice(0,10); if(set.has(k)){n++; d.setDate(d.getDate()-1);} else break; } return n; }
+function copy(text){ if(navigator.clipboard){ navigator.clipboard.writeText(text).then(()=>toast("Copied. Paste it to Claude."),()=>toast("Select the text below and copy it")); } else toast("Select the text below and copy it"); }
+
+let view = {name:"home"};
+function go(v){ view=v; render(); window.scrollTo(0,0); }
+
+function tabs(){
+  const t=[["home","🏠","Path"],["review","🔁","Review"],["tutor","💬","Tutor"],["me","📈","Progress"]];
+  $("#tabs").innerHTML=t.map(([k,i,l])=>`<button class="${view.name===k||(k==='home'&&view.name==='mod')?'on':''}" onclick="go({name:'${k}'})"><span>${i}</span>${l}</button>`).join("");
+}
+
+function render(){
+  tabs();
+  const a=$("#app");
+  if(view.name==="home") a.innerHTML=home();
+  else if(view.name==="mod") a.innerHTML=mod();
+  else if(view.name==="review") a.innerHTML=review();
+  else if(view.name==="tutor") a.innerHTML=tutor();
+  else if(view.name==="me") a.innerHTML=me();
+}
+
+function home(){
+  const n=M.filter(m=>done(m.id)).length;
+  const next=M.find(m=>!done(m.id));
+  return `<h1>Claude FDE, at your pace</h1>
+  <div class="mute">10 modules · learn → test → explain → build</div>
+  <div class="card"><div class="row" style="align-items:center"><div><div class="big">${n}/10</div><div class="mute">modules complete</div></div><div style="text-align:right"><div class="big">🔥${streak()}</div><div class="mute">day streak</div></div></div>
+  <div class="bar" style="margin-top:12px"><i style="width:${n*10}%"></i></div>
+  ${next?`<button class="btn primary" style="margin-top:14px" onclick="go({name:'mod',id:'${next.id}',tab:'learn',i:0})">Continue: ${esc(next.title)}</button>`:`<button class="btn primary" onclick="go({name:'tutor'})">All done. Start the capstone</button>`}
+  ${S.review.length?`<button class="btn ghost" onclick="go({name:'review'})">🔁 ${S.review.length} question(s) to review</button>`:""}
+  </div>
+  ${M.map(m=>{const p=parts(m.id);return `<button class="btn" onclick="go({name:'mod',id:'${m.id}',tab:'learn',i:0})"><div class="mod"><div class="num ${done(m.id)?'done':''}">${done(m.id)?'✓':m.n}</div><div><div><b>${esc(m.title)}</b></div><div class="mute">${esc(m.course)}</div><div class="dots">${p.map(x=>`<b class="${x?'on':''}"></b>`).join("")}</div></div></div></button>`}).join("")}
+  <div class="card mute">Dots = Learn · Quiz (80%+) · Explain · Build. The official courses are free to register on Anthropic's partner Skilljar; this app is a companion, not a copy.</div>`;
+}
+
+function mod(){
+  const m=M.find(x=>x.id===view.id), st=ms(m.id), tab=view.tab||"learn";
+  const T=[["learn","Learn"],["quiz","Quiz"],["explain","Explain"],["build","Build"]];
+  let body="";
+  if(tab==="learn"){
+    const i=view.i||0, total=m.cards.length;
+    if(i===0 && !view.seenWhy){ body=`<div class="card"><span class="pill">Why an FDE needs this</span><p>${m.why}</p></div><button class="btn primary" onclick="view.seenWhy=1;render()">Start (${total} cards)</button>`; }
+    else if(i<total){ const c=m.cards[i];
+      body=`<div class="mute">Card ${i+1} of ${total}</div><div class="bar"><i style="width:${(i+1)/total*100}%"></i></div>
+      <div class="card" id="swipe"><h2>${c.h}</h2><p>${c.b}</p></div>
+      <div class="row"><button class="btn ghost" ${i===0?'disabled':''} onclick="view.i=${i-1};render()">← Back</button><button class="btn primary" onclick="view.i=${i+1};render()">Next →</button></div>`; }
+    else { st.learn=true; save();
+      body=`<div class="card"><span class="pill">Try it (2 min)</span><p>${m.tryit}</p></div>
+      <button class="btn primary" onclick="go({name:'mod',id:'${m.id}',tab:'quiz'})">Test yourself →</button>
+      <button class="btn ghost" onclick="view.i=0;render()">Read the cards again</button>`; }
+  }
+  if(tab==="quiz"){
+    if(!view.q){ view.q={order:shuffle(m.quiz.map((_,k)=>k)),k:0,right:0,picked:null,opts:null}; }
+    const Q=view.q;
+    if(Q.k<Q.order.length){
+      const qi=Q.order[Q.k], q=m.quiz[qi];
+      if(!Q.opts) Q.opts=shuffle(q.o.map((_,k)=>k));
+      body=`<div class="mute">Question ${Q.k+1} of ${Q.order.length} · ${Q.right} right</div><div class="bar"><i style="width:${Q.k/Q.order.length*100}%"></i></div>
+      <div class="card"><h3>${esc(q.q)}</h3>
+      ${Q.opts.map(oi=>{let cls="";if(Q.picked!==null){if(oi===q.a)cls="ok";else if(oi===Q.picked)cls="bad";}return `<button class="btn ${cls}" ${Q.picked!==null?'disabled':''} onclick="pick(${oi})">${esc(q.o[oi])}</button>`}).join("")}
+      ${Q.picked!==null?`<div class="why"><b>${Q.picked===q.a?'✓ Right.':'✗ Not quite.'}</b> ${esc(q.why)}</div><button class="btn primary" style="margin-top:12px" onclick="nextQ()">Next →</button>`:""}
+      </div>`;
+    } else {
+      const score=Q.right/Q.order.length; st.quiz=Math.max(st.quiz||0,score); save();
+      body=`<div class="card" style="text-align:center"><div class="big">${Q.right}/${Q.order.length}</div><p>${score>=0.8?"Passed. Nice.":"Not yet 80%. Missed ones are in your Review deck. Try again whenever."}</p></div>
+      ${score>=0.8?`<button class="btn primary" onclick="go({name:'mod',id:'${m.id}',tab:'explain'})">Explain it in your words →</button>`:""}
+      <button class="btn ghost" onclick="view.q=null;render()">Retake (new order)</button>`;
+    }
+  }
+  if(tab==="explain"){
+    const saved=(S.explain||{})[m.id]||"";
+    body=`<div class="card"><span class="pill">Say it in your own words</span><h3 style="margin-top:8px">${esc(m.explain.q)}</h3>
+    <textarea id="ex" placeholder="Type or dictate your answer…">${esc(saved)}</textarea>
+    <button class="btn primary" onclick="reveal()">Compare with a model answer</button>
+    <div id="model"></div></div>`;
+  }
+  if(tab==="build"){
+    const p=m.project, ck=S.steps[m.id]||[];
+    body=`<div class="card"><span class="pill">Small project</span><h2 style="margin-top:8px">${esc(p.title)}</h2>
+    <ol class="steps">${p.steps.map((s,k)=>`<li><input type="checkbox" ${ck[k]?'checked':''} onchange="step('${m.id}',${k},this.checked)"><span>${esc(s)}</span></li>`).join("")}</ol></div>
+    <div class="card"><span class="pill">LinkedIn angle</span><p>${esc(p.share)}</p><p class="mute">Ask Claude to draft it in your voice (steve-voice) once the project is real. Post only what you actually built and measured.</p></div>
+    <button class="btn" onclick="copyStart('${m.id}')">💬 Copy a prompt to start this with Claude</button>
+    <textarea class="copybox" readonly id="cb" style="display:none"></textarea>
+    <button class="btn ${st.build?'ok':'primary'}" onclick="markBuild('${m.id}')">${st.build?'✓ Project done':'Mark project done'}</button>`;
+  }
+  return `<div class="top"><button class="back" onclick="go({name:'home'})">← Path</button></div>
+  <span class="pill">Module ${m.n} · ${esc(m.course)}</span><h1>${esc(m.title)}</h1>
+  <div class="row" style="margin:10px 0">${T.map(([k,l],j)=>`<button class="btn ${tab===k?'primary':''}" style="text-align:center;min-height:44px;padding:8px 4px;font-size:14px" onclick="go({name:'mod',id:'${m.id}',tab:'${k}',i:0,seenWhy:1})">${parts(m.id)[j]?'✓ ':''}${l}</button>`).join("")}</div>
+  ${body}`;
+}
+
+function pick(oi){ const m=M.find(x=>x.id===view.id), Q=view.q, qi=Q.order[Q.k], q=m.quiz[qi]; Q.picked=oi;
+  const key=m.id+":"+qi;
+  if(oi===q.a){ Q.right++; S.review=S.review.filter(r=>r!==key); } else if(!S.review.includes(key)) S.review.push(key);
+  save(); render(); }
+function nextQ(){ const Q=view.q; Q.k++; Q.picked=null; Q.opts=null; render(); }
+function reveal(){ const m=M.find(x=>x.id===view.id), v=$("#ex").value.trim();
+  S.explain=S.explain||{}; S.explain[m.id]=v; save();
+  $("#model").innerHTML=`<div class="why"><b>One good answer:</b> ${esc(m.explain.model)}</div>
+  <p class="mute">How close were you?</p>
+  <div class="row"><button class="btn" style="text-align:center" onclick="rate(1)">Got it</button><button class="btn" style="text-align:center" onclick="rate(.5)">Partly</button><button class="btn" style="text-align:center" onclick="rate(0)">Missed</button></div>
+  <button class="btn" onclick="copyGrade()">💬 Copy for Claude to grade</button><textarea class="copybox" readonly id="cb" style="display:none"></textarea>`; }
+function rate(x){ const st=ms(view.id); st.explain = x>=0.5 ? true : null; save(); toast(x>=0.5?"Saved. On to the build.":"Reread the cards, then try again."); if(x>=0.5) setTimeout(()=>go({name:'mod',id:view.id,tab:'build'}),600); }
+function showCopy(t){ const b=$("#cb"); b.style.display="block"; b.value=t; copy(t); }
+function copyGrade(){ const m=M.find(x=>x.id===view.id); showCopy(`FDE study, module ${m.n} (${m.title}). Grade my explanation like a tough but kind tutor: what's right, what's missing or wrong, then one follow-up question to test me.\n\nQuestion: ${m.explain.q}\n\nMy answer: ${$("#ex").value.trim()}`); }
+function copyStart(id){ const m=M.find(x=>x.id===id); showCopy(`FDE study, module ${m.n} project: "${m.project.title}". Work in C:/Users/Steve/writing/learning/claude-fde/ (read TUTOR.md first). Coach me through it step by step; let me do the thinking, don't just build it for me. Steps:\n- ${m.project.steps.join("\n- ")}`); }
+function step(id,k,v){ S.steps[id]=S.steps[id]||[]; S.steps[id][k]=v; save(); }
+function markBuild(id){ const st=ms(id); st.build=!st.build; save(); render(); if(st.build&&done(id)) toast("Module complete 🎉"); }
+
+function review(){
+  if(!S.review.length) return `<h1>Review</h1><div class="card">Nothing to review. Questions you miss land here, and leave once you get them right.</div>`;
+  if(!view.r){ view.r={list:shuffle(S.review),k:0,picked:null,opts:null}; }
+  const R=view.r;
+  if(R.k>=R.list.length){ return `<h1>Review</h1><div class="card" style="text-align:center"><p>Round done. ${S.review.length} still to master.</p></div><button class="btn primary" onclick="view.r=null;render()">Another round</button>`; }
+  const [mid,qi]=R.list[R.k].split(":"), m=M.find(x=>x.id===mid), q=m.quiz[+qi];
+  if(!R.opts) R.opts=shuffle(q.o.map((_,k)=>k));
+  return `<h1>Review</h1><div class="mute">${R.k+1} of ${R.list.length} · from module ${m.n}</div>
+  <div class="card"><h3>${esc(q.q)}</h3>${R.opts.map(oi=>{let c="";if(R.picked!==null){if(oi===q.a)c="ok";else if(oi===R.picked)c="bad";}return `<button class="btn ${c}" ${R.picked!==null?'disabled':''} onclick="rpick(${oi})">${esc(q.o[oi])}</button>`}).join("")}
+  ${R.picked!==null?`<div class="why">${esc(q.why)}</div><button class="btn primary" style="margin-top:12px" onclick="view.r.k++;view.r.picked=null;view.r.opts=null;render()">Next →</button>`:""}</div>`;
+}
+function rpick(oi){ const R=view.r, key=R.list[R.k], [mid,qi]=key.split(":"), q=M.find(x=>x.id===mid).quiz[+qi]; R.picked=oi; if(oi===q.a) S.review=S.review.filter(r=>r!==key); save(); render(); }
+
+function tutor(){
+  const asks=[
+    ["Quiz me out loud","Quiz me on Claude FDE module __ with 5 new questions I haven't seen, one at a time. Wait for my answer each time, then tell me if I'm right and why."],
+    ["Explain it differently","I'm studying Claude FDE module __ and this didn't click: ____. Explain it a different way, with an example from industrial plants."],
+    ["Role-play a customer","Play a customer at a manufacturing plant who wants to 'use Claude'. Be vague like real customers are. I'm the FDE: I'll ask questions to qualify the use case. Score me at the end."],
+    ["Mock FDE interview","Run a 20-minute mock interview for a Claude Forward Deployed Engineer role: one technical question (agent loop / MCP / tools), one customer scenario, one behavioral. Feedback at the end."],
+    ["Weekly check-in","Read C:/Users/Steve/writing/learning/claude-fde/progress.md and TUTOR.md. Ask me what I did this week, update progress.md, and suggest the next smallest step."]
+  ];
+  return `<h1>Tutor</h1><div class="mute">Copy a prompt, paste it into chat with Claude. Fill the blanks.</div>
+  ${asks.map(([t,p],k)=>`<div class="card"><h3>${t}</h3><p class="mute">${esc(p)}</p><button class="btn" style="text-align:center" onclick="showCopy2(${k})">Copy</button></div>`).join("")}
+  <textarea class="copybox" readonly id="cb" style="display:none"></textarea>
+  <div class="card"><span class="pill">Capstone</span><h3 style="margin-top:8px">${esc(D.capstone.title)}</h3><ol>${D.capstone.steps.map(s=>`<li>${esc(s)}</li>`).join("")}</ol></div>`;
+}
+const TUT=[];function showCopy2(k){ const p=document.querySelectorAll(".card p.mute")[k].textContent; showCopy(p); }
+
+function me(){
+  const code=btoa(unescape(encodeURIComponent(JSON.stringify(S))));
+  return `<h1>Progress</h1>
+  ${M.map(m=>{const st=ms(m.id);return `<div class="card mod"><div class="num ${done(m.id)?'done':''}">${m.n}</div><div style="flex:1"><b>${esc(m.title)}</b><div class="mute">Quiz best: ${st.quiz===null?'–':Math.round(st.quiz*100)+'%'} · ${st.build?'project done':'project open'}</div></div></div>`}).join("")}
+  <div class="card"><h3>Save or move your progress</h3><p class="mute">Progress lives in this browser. Copy this code into chat ("save my FDE progress: …") and Claude will store it in the repo, or paste a code here to restore.</p>
+  <textarea class="copybox" id="pc">${code}</textarea>
+  <div class="row"><button class="btn" style="text-align:center" onclick="copy($('#pc').value)">Copy code</button><button class="btn" style="text-align:center" onclick="restore()">Restore</button></div>
+  <button class="btn ghost" onclick="if(confirm('Erase all progress?')){S={mods:{},review:[],days:[],steps:{}};save();render();}">Reset everything</button></div>`;
+}
+function restore(){ try{ S=JSON.parse(decodeURIComponent(escape(atob($("#pc").value.trim())))); save(); toast("Restored"); render(); }catch(e){ toast("That code didn't work"); } }
+
+// swipe on learn cards
+let sx=null; document.addEventListener("touchstart",e=>{ if(e.target.closest("#swipe")) sx=e.touches[0].clientX; },{passive:true});
+document.addEventListener("touchend",e=>{ if(sx===null) return; const dx=e.changedTouches[0].clientX-sx; sx=null; if(Math.abs(dx)<60) return; const m=M.find(x=>x.id===view.id); const i=view.i||0; if(dx<0) view.i=i+1; else if(i>0) view.i=i-1; render(); });
+
+render();
+</script>
+</body>
+</html>
